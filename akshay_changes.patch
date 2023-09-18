@@ -1,0 +1,867 @@
+diff --git a/.gitignore b/.gitignore
+index 845a49ac98..503d0d836f 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -22,3 +22,31 @@ tags
+ nfapi_nr_interface_scf
+ *.log
+ *.out
++cmake_targets/USRP
++targets/PROJECTS/GENERIC-NR-5GC/CONF/channelmod_rfsimu.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_AWGN.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_Rayleigh1_800.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_Rayleigh1.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_Rayleigh8.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_Rice1.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_Rice8.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_TDL_A.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_TDL_B.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_TDL_C.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_TDL_D.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210_TDL_E.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_AWGN.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_Rayleigh1_800.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_Rayleigh1.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_Rayleigh8.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_Rice1.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_Rice8.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_TDL_A.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_TDL_B.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_TDL_C.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_TDL_D.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue_TDL_E.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210.conf
++targets/PROJECTS/GENERIC-NR-5GC/CONF/ue.conf
+diff --git a/openair1/SIMULATION/TOOLS/random_channel.c b/openair1/SIMULATION/TOOLS/random_channel.c
+index f360adad32..7c98ebc580 100644
+--- a/openair1/SIMULATION/TOOLS/random_channel.c
++++ b/openair1/SIMULATION/TOOLS/random_channel.c
+@@ -46,6 +46,11 @@ extern void print_shorts(char *s,__m128i *x);
+ static mapping channelmod_names[] = {
+   CHANNELMOD_MAP_INIT
+ };
++static mapping plmod_names[] = {
++  PLMOD_MAP_INIT
++};
++
++int plmodelid_fromstrtype(char *modeltype);
+ static char *module_id_str[] = MODULEID_STR_INIT;
+ static int channelmod_show_cmd(char *buff, int debug, telnet_printfunc_t prnt);
+ static int channelmod_modify_cmd(char *buff, int debug, telnet_printfunc_t prnt);
+@@ -80,6 +85,182 @@ static channel_desc_t **defined_channels;
+ static char *modellist_name;
+ 
+ 
++void fill_pathloss_desc(channel_desc_t *chan_desc,
++                        double h_bs,
++                        double h_ut,
++                        double H,
++                        double W,
++                        double d_2d,
++                        int flag  ) {
++  chan_desc->pathloss_model_var.h_bs          = h_bs;
++  chan_desc->pathloss_model_var.h_ut          = h_ut;
++  chan_desc->pathloss_model_var.H             = H;
++  chan_desc->pathloss_model_var.W             = W;
++  chan_desc->pathloss_model_var.d_2d          = d_2d;
++  chan_desc->PM_Flag                           = flag;
++  LOG_I(OCM,"Getting Pathloss Model descriptors. h_bs  %lf, h_ut %lf, H %lf, W %lf, d_2d %lf\n",h_bs,h_ut,H,W,d_2d);
++                        }
++
++
++void set_pathloss_default_values(channel_desc_t *chan_desc){
++
++ switch (chan_desc->pathloss_model)
++  {
++    double h_bs,h_ut,H,W,d_2d;
++    int flag;
++    case None:
++      {h_bs = 0;
++      h_ut = 0;
++      H = 0;
++      W = 0;
++      d_2d = 0;
++      flag = 0;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case RMa_LOS:
++      {h_bs = 35;
++       h_ut = 1.5;
++       H = 5;
++       W = 20;
++       d_2d = 10;
++       flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case RMa_NLOS:
++      { h_bs = 35;
++       h_ut = 1.5;
++       H = 5;
++       W = 20;
++       d_2d = 10;
++        flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case UMa_LOS:
++      { h_bs = 25;
++       h_ut = 1.5;
++       H = 5;
++       W = 20;
++       d_2d = 10;
++        flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case UMa_NLOS:
++      { h_bs = 25;
++       h_ut = 1.5;
++       H = 5;
++       W = 20;
++       d_2d = 10;
++        flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++     case UMi_SC_LOS:
++       {h_bs = 10;
++       h_ut = 1.5;
++       H = 5;
++       W = 20;
++       d_2d = 10;
++        flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case UMi_SC_NLOS:
++       {h_bs = 10;
++       h_ut = 1.5;
++       H = 5;
++       W = 20;
++       d_2d = 10;
++        flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case InH_Office_LOS:
++       {h_bs = 10;
++       h_ut = 1.5;
++       H = 5;
++       W = 20;
++       d_2d = 1;
++        flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case InH_Office_NLOS:
++       {h_bs = 10;
++       h_ut = 1.5;
++       H = 5;
++       W = 20;
++       d_2d = 1;
++        flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case InF_LOS:
++       {h_bs = 10;
++       h_ut = 1.5;
++       H = 5;
++       W = 20;
++       d_2d = 1;
++        flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case InF_NLOS_SL:
++       {h_bs = 10;
++       h_ut = 1.5;
++       H = 5;
++       W = 20;
++       d_2d = 1;
++        flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case InF_NLOS_DL:
++      {h_bs = 10;
++      h_ut = 1.5;
++      H = 5;
++      W = 20;
++      d_2d = 1;
++      flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case InF_NLOS_SH:
++      {h_bs = 10;
++      h_ut = 1.5;
++      H = 5;
++      W = 20;
++      d_2d = 1;
++      flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    case InF_NLOS_DH:
++      {h_bs = 10;
++      h_ut = 1.5;
++      H = 5;
++      W = 20;
++      d_2d = 1;
++      flag = 1;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++
++    default:
++      {h_bs = 0;
++      h_ut = 0;
++      H = 0;
++      W = 0;
++      d_2d = 0;
++      flag = 0;
++      fill_pathloss_desc(chan_desc,h_bs,h_ut,H,W,d_2d,flag);
++      break;}
++  }
++
++}
++
+ void fill_channel_desc(channel_desc_t *chan_desc,
+                        uint8_t nb_tx,
+                        uint8_t nb_rx,
+@@ -566,6 +747,7 @@ double get_normalization_ch_factor(channel_desc_t *desc)
+ channel_desc_t *new_channel_desc_scm(uint8_t nb_tx,
+                                      uint8_t nb_rx,
+                                      SCM_t channel_model,
++                                     pathloss_model_t pathloss_model,
+                                      double sampling_rate,
+                                      uint64_t center_freq,
+                                      double channel_bandwidth,
+@@ -620,6 +802,8 @@ channel_desc_t *new_channel_desc_scm(uint8_t nb_tx,
+   double *tdl_amps_dB;
+   double *tdl_delays;
+ 
++  set_pathloss_default_values(chan_desc);
++
+   /*  Spatial Channel Models (SCM)  channel model from TR 38.901 Section 7.7.2 */
+   switch (channel_model) {
+     case SCM_A:
+@@ -1992,12 +2176,12 @@ static int channelmod_print_help(char *buff, int debug, telnet_printfunc_t prnt
+   prnt("channelmod show current: display the currently used models in the running executable\n");
+   prnt("channelmod modify <model index> <param name> <param value>: set the specified parameters in a current model to the given value\n");
+   prnt("                  <model index> specifies the model, the show current model command can be used to list the current models indexes\n");
+-  prnt("                  <param name> can be one of \"riceanf\", \"aoa\", \"randaoa\", \"ploss\", \"noise_power_dB\", \"offset\", \"forgetf\"\n");
++  prnt("                  <param name> can be one of \"riceanf\", \"aoa\", \"randaoa\", \"ploss\", \"noise_power_dB\", \"offset\", \"forgetf\",\"pathloss_model\", \"hBS\", \"hUT\", \"H\", \"W\"\n");
+   return CMDSTATUS_FOUND;
+ }
+ 
+-static char *pnames[] = {"riceanf", "aoa", "randaoa", "ploss", "noise_power_dB", "offset", "forgetf", NULL};
+-static char *pformat[] = {"%lf", "%lf", "%i", "%lf", "%lf", "%i", "%lf", NULL};
++static char *pnames[] = {"riceanf", "aoa", "randaoa", "ploss", "noise_power_dB", "offset", "forgetf","pathloss_model","hBS","hUT","H","W",NULL};
++static char *pformat[] = {"%lf", "%lf", "%i", "%lf", "%lf", "%i", "%lf","%s","%lf","%lf","%lf","%lf",NULL};
+ int get_channel_params(char *buf, int debug, void *vdata, telnet_printfunc_t prnt)
+ {
+   if (buf == NULL) {
+@@ -2068,7 +2252,8 @@ static void display_channelmodel(channel_desc_t *cd,int debug, telnet_printfunc_
+        cd->max_Doppler, cd->path_loss_dB, cd->noise_power_dB, cd->channel_offset, cd->forgetting_factor);
+   prnt("Initial phase: %lf   nb_path: %i \n",
+        cd->ip, cd->nb_paths);
+-
++  char* pathlossmodel_names[] = {"None", "RMa_LOS", "RMa_NLOS", "UMa_LOS", "UMa_NLOS", "UMi_SC_LOS", "UMi_SC_NLOS", "InH_Office_LOS", "InH_Office_NLOS", "InF_LOS", "InF_NLOS_DL", "InF_NLOS_DH", "InF_NLOS_SL", "InF_NLOS_SH"};
++  prnt("Pathloss Model: %s  hBS: %lf  hUT: %lf H:%lf W:%lf distance_2d: %lf PMFlag:%d\n",pathlossmodel_names[cd->pathloss_model],cd->pathloss_model_var.h_bs,cd->pathloss_model_var.h_ut,cd->pathloss_model_var.H,cd->pathloss_model_var.W,cd->pathloss_model_var.d_2d,cd->PM_Flag);
+   for (int i=0; i<cd->nb_taps ; i++) {
+     prnt("taps: %i   lin. ampli. : %lf    delay: %lf \n",i,cd->amps[i], cd->delays[i]);
+   }
+@@ -2155,6 +2340,190 @@ static int channelmod_show_cmd(char *buff, int debug, telnet_printfunc_t prnt) {
+ 
+ 
+ 
++double g(double d_2D){
++  if(d_2D<=18)
++    return 0;
++  else
++    return((5/4)*pow((d_2D/100),3)*exp(-d_2D/150));
++}
++
++double c1(double d_2D,double h_UT){
++  if(h_UT<13)
++    return 0;
++  else if(h_UT<=23 || h_UT>=13){
++    double b= g(d_2D);
++    return(pow(((h_UT-13)/10),1.5)*b);
++  }else return 0.0;
++}
++
++double generateRandomNumber(double min, double max){
++    int numValues = (int)((max - min) / 0.5) + 1;
++    int randomIndex = rand() % numValues;
++    double randomNumber = min + randomIndex * 0.5;
++    return randomNumber;
++}
++
++int calculate_pathloss_cmd(channel_desc_t *chan_desc){
++
++double d_2D = chan_desc->pathloss_model_var.d_2d; //2D Distance
++double h_BS = chan_desc->pathloss_model_var.h_bs; //Base Station Antenna Height
++double h_UT = chan_desc->pathloss_model_var.h_ut; //User Terminal Antenna Height
++double h = chan_desc->pathloss_model_var.H; //Average Height of Buildings
++double w = chan_desc->pathloss_model_var.W; //Average Width of the street
++double fc = (double)chan_desc->center_freq; //Center Frequency
++double fc_norm = fc/(pow(10,9)); //Normalized Center Frequency to 1Ghz
++const double c = 299792458; /* 3e8 */
++
++
++double d_3D = sqrt((d_2D*d_2D)+((h_BS-h_UT)*(h_BS-h_UT))); //3D Distance
++
++if(chan_desc->pathloss_model == RMa_LOS || chan_desc->pathloss_model == RMa_NLOS){
++ double d_BP = (2*M_PI*h_BS*h_UT*fc)/c; //Break Point Distance
++ double d_3D_BP = sqrt((d_BP*d_BP)+((h_BS-h_UT)*(h_BS-h_UT)));
++ double PL1 = 20*log10(40*M_PI*d_3D*fc_norm/3)+(min(pow(0.03*h,1.72),10))*log10(d_3D)-min(pow(0.044*h,1.72),14.77)+(0.002*log10(h)*d_3D)+gaussZiggurat(0.0,4.0);
++ double PL2 = (20*log10(40*M_PI*d_3D_BP*fc_norm/3)+(min(pow(0.03*h,1.72),10))*log10(d_3D_BP)-min(pow(0.044*h,1.72),14.77)+0.002*log10(h)*d_3D_BP)+40*log10(d_3D/d_BP)+gaussZiggurat(0.0,6.0);
++ double RMa_LOS_PL;
++  if(d_2D<=d_BP || d_2D>=10){
++    RMa_LOS_PL=PL1;
++  }
++  else{
++    RMa_LOS_PL=PL2;
++  }
++  if(chan_desc->pathloss_model==RMa_LOS){
++    chan_desc->path_loss_dB=-1*RMa_LOS_PL;
++    printf("Pathloss is set to %lf db",RMa_LOS_PL);
++    return 0;
++  }
++  else{
++    double RMa_NLOS_PL;
++    double PL3 = 161.04 -7.1*log10(w)+(7.5*log10(h))-((24.37-3.7*(h/h_BS)*(h/h_BS))*(log10(h_BS)))+((43.42-3.1*log10(h_BS))*(log10(d_3D)-3))+(20*log10(fc_norm))-(3.2*(log10(11.75*h_UT))*(log10(11.75*h_UT)) - 4.97)+gaussZiggurat(0.0,8.0);
++    RMa_NLOS_PL = max(RMa_LOS_PL,PL3);
++    chan_desc->path_loss_dB=-1*RMa_NLOS_PL;
++    printf("Pathloss is set to %lf db",RMa_NLOS_PL);
++    return 0;
++  }
++}
++else if(chan_desc->pathloss_model == UMa_LOS || chan_desc->pathloss_model == UMa_NLOS){
++  double hE;
++  double a = c1(d_2D,h_UT);
++  double pr = 1/(1+a);
++  if(pr>0.5)
++    hE=1;
++  else
++    hE=generateRandomNumber(12,(h_UT - 1.5));
++  //Effective antenna lengths
++  double h1_BS=h_BS-hE;
++  double h1_UT=h_UT-hE;
++  double d1_BP=(4*h1_BS*h1_UT*fc/c);
++  double PL1 = 28+(22*log10(d_3D))+(20*log10(fc_norm))+gaussZiggurat(0,4);
++  double PL2 = 28+(40*log10(d_3D))+(20*log10(fc_norm))-(9*log10((pow(d1_BP,2)+pow((h_BS-h_UT),2))))+gaussZiggurat(0,4);
++  double UMa_LOS_PL;
++  if(d_2D<=d1_BP || d_2D>=10){
++    UMa_LOS_PL=PL1;
++  }
++  else if (d_2D<=5000 || d_2D > d1_BP){
++    UMa_LOS_PL=PL2;
++  }
++  if(chan_desc->pathloss_model==RMa_LOS){
++    chan_desc->path_loss_dB=-1*UMa_LOS_PL;
++    printf("Pathloss is set to %lf db",UMa_LOS_PL);
++    return 0;
++  }
++  else{
++    double UMa_NLOS_PL;
++    double PL3 = 13.54+(39.08*log10(d_3D))+(20*log10(fc_norm))-(0.6*(h_UT-1.5))+gaussZiggurat(0,6);
++    UMa_NLOS_PL = max(UMa_LOS_PL,PL3);
++    chan_desc->path_loss_dB=-1*UMa_NLOS_PL;
++    printf("Pathloss is set to %lf db",UMa_NLOS_PL);
++    return 0;
++  }
++}
++else if(chan_desc->pathloss_model == UMi_SC_LOS || chan_desc->pathloss_model == UMi_SC_NLOS){
++  //Effective Antenna Lengths
++  double h1_BS=h_BS-1;
++  double h1_UT=h_UT-1;
++  double d1_BP=(4*h1_BS*h1_UT*fc/c); //Break Point Distance
++  double PL1 = 32.4+(21*log10(d_3D))+(20*log10(fc_norm))+gaussZiggurat(0,4);
++  double PL2 = 32.4+(40*log10(d_3D))+(20*log10(fc_norm))-(9.5*log10((pow(d1_BP,2)+pow((h_BS-h_UT),2))))+gaussZiggurat(0,4);
++  double UMi_SC_LOS_PL;
++  if(d_2D<=d1_BP || d_2D>=10){
++    UMi_SC_LOS_PL=PL1;
++  }
++  else if (d_2D<=5000 || d_2D > d1_BP){
++    UMi_SC_LOS_PL=PL2;
++  }
++  if(chan_desc->pathloss_model==RMa_LOS){
++    chan_desc->path_loss_dB=-1*UMi_SC_LOS_PL;
++    printf("Pathloss is set to %lf db",UMi_SC_LOS_PL);
++    return 0;
++  }
++  else{
++    double UMi_SC_NLOS_PL;
++    double PL3 = (35.3*log10(d_3D))+22.4+(21.3*log10(fc_norm))-(0.3*(h_UT-1.5))+gaussZiggurat(0,7.82);
++    UMi_SC_NLOS_PL = max(UMi_SC_LOS_PL,PL3);
++    chan_desc->path_loss_dB=-1*UMi_SC_NLOS_PL;
++    printf("Pathloss is set to %lf db",UMi_SC_NLOS_PL);
++    return 0;
++  }
++}
++else if(chan_desc->pathloss_model == InH_Office_LOS || chan_desc->pathloss_model == InH_Office_NLOS){
++  double InH_LOS_PL = 32.4+(17.3*log10(d_3D))+(20*log10(fc_norm))+gaussZiggurat(0,3);
++  if(chan_desc->pathloss_model==InH_Office_LOS){
++    chan_desc->path_loss_dB=-1*InH_LOS_PL;
++    printf("Pathloss is set to %lf db",InH_LOS_PL);
++    return 0;
++  }
++  else{
++    double PL1 = (38.3*log10(d_3D))+17.3+(24.9*log10(fc_norm))+gaussZiggurat(0,8.03);
++    double InH_NLOS_PL = max(InH_LOS_PL,PL1);
++    chan_desc->path_loss_dB=-1*InH_NLOS_PL;
++    printf("Pathloss is set to %lf db",InH_NLOS_PL);
++    return 0;
++  }
++}
++else if(chan_desc->pathloss_model == InF_LOS || chan_desc->pathloss_model == InF_NLOS_DH || chan_desc->pathloss_model == InF_NLOS_SH || chan_desc->pathloss_model == InF_NLOS_DL || chan_desc->pathloss_model == InF_NLOS_SL){
++  double InF_LOS_PL = 31.84+(21.50*log10(d_3D))+(19*log10(fc_norm))+gaussZiggurat(0,4);
++  if(chan_desc->pathloss_model==InF_LOS){
++    chan_desc->path_loss_dB=-1*InF_LOS_PL;
++    printf("Pathloss is set to %lf db",InF_LOS_PL);
++    return 0;
++  }
++  else if(chan_desc->pathloss_model==InF_NLOS_SL || chan_desc->pathloss_model==InF_NLOS_DL){
++    double PL1 = 33+(25.5*log10(d_3D))+(20*log10(fc_norm))+gaussZiggurat(0,5.7);
++    double InF_NLOS_SL_PL = max(InF_LOS_PL,PL1);
++    if(chan_desc->pathloss_model==InF_NLOS_SL){
++      chan_desc->path_loss_dB=-1*InF_NLOS_SL_PL;
++      printf("Pathloss is set to %lf db",InF_NLOS_SL_PL);
++      return 0;
++    }
++    else{
++      double PL2 = 18.6+(35.7*log10(d_3D))+(20*log10(fc_norm))+gaussZiggurat(0,7.2);
++      double InF_NLOS_DL_PL = max(max(InF_LOS_PL,InF_NLOS_SL_PL),PL2);
++      chan_desc->path_loss_dB=-1*InF_NLOS_DL_PL;
++      printf("Pathloss is set to %lf db",InF_NLOS_DL_PL);
++      return 0;
++    }
++  }
++  else if(chan_desc->pathloss_model==InF_NLOS_SH){
++    double PL3=32.4+(23*log10(d_3D))+(20*log10(fc_norm))+gaussZiggurat(0,5.9);
++    double InF_NLOS_SH_PL=max(PL3,InF_LOS_PL);
++    chan_desc->path_loss_dB=-1*InF_NLOS_SH_PL;
++    printf("Pathloss is set to %lf db",InF_NLOS_SH_PL);
++    return 0;
++  }
++  else{
++    double PL4=33.63+(21.9*log10(d_3D))+(20*log10(fc_norm))+gaussZiggurat(0,4);
++    double InF_NLOS_DH_PL=max(PL4,InF_LOS_PL);
++    chan_desc->path_loss_dB=-1*InF_NLOS_DH_PL;
++    printf("Pathloss is set to %lf db",InF_NLOS_DH_PL);
++    return 0;
++  }
++}
++else {
++return 0;
++}
++}
++
+ static int channelmod_modify_cmd(char *buff, int debug, telnet_printfunc_t prnt) {
+   char *param=NULL, *value=NULL;
+   int cd_id= -1;
+@@ -2193,8 +2562,14 @@ static int channelmod_modify_cmd(char *buff, int debug, telnet_printfunc_t prnt)
+       else
+         defined_channels[cd_id]->random_aoa=i;
+     } else if ( strcmp(param,"ploss") == 0) {
+-      double dbl = atof(value);
+-      defined_channels[cd_id]->path_loss_dB=dbl;
++            if (defined_channels[cd_id]->PM_Flag==0){
++                double dbl = atof(value);
++                defined_channels[cd_id]->path_loss_dB=dbl;
++                }
++            else{
++              prnt("ERROR: Pathloss cannot be varied as Pathloss Model is set\n");
++            }
++
+     } else if ( strcmp(param,"noise_power_dB") == 0) {
+       double dbl = atof(value);
+       defined_channels[cd_id]->noise_power_dB=dbl;
+@@ -2208,10 +2583,60 @@ static int channelmod_modify_cmd(char *buff, int debug, telnet_printfunc_t prnt)
+         prnt("ERROR: forgetting factor range: 0 to 1 (disable variation), %lf is outof range\n",dbl);
+       else
+         defined_channels[cd_id]->forgetting_factor=dbl;
+-    } else {
++    }
++    else if ( strcmp(param,"hUT") == 0) {
++      double dbl = atof(value);
++      if (defined_channels[cd_id]->pathloss_model== RMa_LOS || defined_channels[cd_id]->pathloss_model== RMa_NLOS)
++      {
++        if (dbl <1 || dbl > 10)
++          prnt("Error: For Rma Model hUT can vary between 1<=hUT<=10;  %lf is outof range\n",dbl);
++        else
++          defined_channels[cd_id]->pathloss_model_var.h_ut=dbl;
++      }
++      else
++      {
++        if (dbl <1.5 || dbl > 22.5)
++          prnt("Error: For the given Pathloss Model hUT can vary between 1.2<=hUT<=22.5;  %lf is outof range\n",dbl);
++        else
++          defined_channels[cd_id]-> pathloss_model_var.h_ut=dbl;
++      }
++    }
++    else if ( strcmp(param,"hBS") == 0) {
++      double dbl = atof(value);
++        if (dbl <10 || dbl > 150)
++          prnt("Error: For the given Pathloss Model hBS can vary between 10<=hUT<=150;  %lf is outof range\n",dbl);
++        else
++          defined_channels[cd_id]->pathloss_model_var.h_bs=dbl;
++      }
++    else if ( strcmp(param,"H") == 0) {
++      double dbl = atof(value);
++        if (dbl <5 || dbl > 50)
++          prnt("Error: For the given Pathloss Model H can vary between 5<=hUT<=50;  %lf is outof range\n",dbl);
++        else
++          defined_channels[cd_id]->pathloss_model_var.H=dbl;
++      }
++    else if ( strcmp(param,"W") == 0) {
++      double dbl = atof(value);
++        if (dbl <5 || dbl > 50)
++          prnt("Error: For the given Pathloss Model W can vary between 5<=hUT<=50;  %lf is outof range\n",dbl);
++        else
++          defined_channels[cd_id]->pathloss_model_var.W=dbl;
++      }
++    else if ( strcmp(param,"pathloss_model") == 0) {
++        int dbl = plmodelid_fromstrtype(value);
++        if (dbl <0)
++          prnt("Error: The Given Pathloss Model is not valid\n",dbl);
++        else{
++          defined_channels[cd_id]->pathloss_model=dbl;
++          set_pathloss_default_values(defined_channels[cd_id]);
++        }
++      }
++
++    else {
+       prnt("ERROR: %s, unknown channel parameter\n",param);
+       return CMDSTATUS_FOUND;
+     }
++    calculate_pathloss_cmd(defined_channels[cd_id]);
+     display_channelmodel(defined_channels[cd_id],debug,prnt);
+     free(param);
+     free(value);
+@@ -2260,6 +2685,15 @@ int modelid_fromstrtype(char *modeltype) {
+   return modelid;
+ }
+ 
++int plmodelid_fromstrtype(char *modeltype) {
++  int modelid=map_str_to_int(plmod_names,modeltype);
++
++  if (modelid < 0)
++    LOG_E(OCM,"random_channel.c: Error Pathloss model %s unknown\n",modeltype);
++
++  return modelid;
++}
++
+ double channelmod_get_snr_dB(void) {
+   return snr_dB;
+ }
+@@ -2284,7 +2718,7 @@ void init_channelmod(void) {
+ } /* init_channelmod */
+ 
+ 
+-int load_channellist(uint8_t nb_tx, uint8_t nb_rx, double sampling_rate, double channel_bandwidth) {
++int load_channellist(uint8_t nb_tx, uint8_t nb_rx, double sampling_rate, double channel_bandwidth, uint64_t fc) {
+   paramdef_t achannel_params[] = CHANNELMOD_MODEL_PARAMS_DESC;
+   paramlist_def_t channel_list;
+   memset(&channel_list,0,sizeof(paramlist_def_t));
+@@ -2299,9 +2733,11 @@ int load_channellist(uint8_t nb_tx, uint8_t nb_rx, double sampling_rate, double
+   int pindex_PL = config_paramidx_fromname(achannel_params,numparams, CHANNELMOD_MODEL_PL_PNAME );
+   int pindex_NP = config_paramidx_fromname(achannel_params,numparams, CHANNELMOD_MODEL_NP_PNAME );
+   int pindex_TYPE = config_paramidx_fromname(achannel_params,numparams, CHANNELMOD_MODEL_TYPE_PNAME);
++  int pindex_PLM = config_paramidx_fromname(achannel_params,numparams, CHANNELMOD_MODEL_PLM_PNAME);
+ 
+   for (int i=0; i<channel_list.numelt; i++) {
+     int modid = modelid_fromstrtype( *(channel_list.paramarray[i][pindex_TYPE].strptr) );
++    int plmid = plmodelid_fromstrtype( *(channel_list.paramarray[i][pindex_PLM].strptr) );
+ 
+     if (modid <0) {
+       LOG_E(OCM,"Valid channel model types:\n");
+@@ -2313,11 +2749,22 @@ int load_channellist(uint8_t nb_tx, uint8_t nb_rx, double sampling_rate, double
+       AssertFatal(0, "\n  Choose a valid model type\n");
+     }
+ 
++    if (plmid <0) {
++      LOG_E(OCM,"Valid Pathloss model types:\n");
++
++      for (int m=0; plmod_names[i].name != NULL ; m++) {
++        printf(" %s ", map_int_to_str(plmod_names,m ));
++      }
++
++      AssertFatal(0, "\n  Choose a valid model type\n");
++    }
++
+     channel_desc_t *channeldesc_p = new_channel_desc_scm(nb_tx,
+                                                          nb_rx,
+                                                          modid,
++                                                         plmid,
+                                                          sampling_rate,
+-                                                         0,
++                                                         fc,
+                                                          channel_bandwidth,
+                                                          *(channel_list.paramarray[i][pindex_DT].dblptr),
+                                                          0.0,
+diff --git a/openair1/SIMULATION/TOOLS/sim.h b/openair1/SIMULATION/TOOLS/sim.h
+index 47cb7fe066..d61a7e476a 100644
+--- a/openair1/SIMULATION/TOOLS/sim.h
++++ b/openair1/SIMULATION/TOOLS/sim.h
+@@ -57,6 +57,51 @@ typedef enum {
+   CORR_LEVEL_HIGH
+ } corr_level_t;
+ 
++typedef struct pathloss_model_variable_t_s{
++  //antenna height for BS in meters
++  double h_bs;
++  //antenna height for UT (User Terminal) in meters
++  double h_ut;
++  //H = avg. building height in meters
++  double H ;
++  //W = avg. street width in meters
++  double W ;
++  //2D distance between Tx and Rx in meters
++  double d_2d;
++}pathloss_model_variable_t;
++
++
++typedef enum {
++  //No Pathloss model selected user can set Pathloss.
++  None,
++  //Rural Macro Line of Sight
++  RMa_LOS,
++  //Rural Macro Non-Line of Sight
++  RMa_NLOS,
++  //Urban Macro Line of Sight
++  UMa_LOS,
++  //Urban Macro Non-Line of Sight
++  UMa_NLOS,
++  //Urabn Micro Street Canyon Line of Sight
++  UMi_SC_LOS,
++  //Urabn Micro Street Canyon Non-Line of Sight
++  UMi_SC_NLOS,
++  //Indoor Hotspot Office Line of Sight
++  InH_Office_LOS,
++  //Indoor Hotspot Office Non-Line of Sight
++  InH_Office_NLOS,
++  //Indoor Factory Line of Sight
++  InF_LOS,
++  //Indoor Factory with Dense clutter and Low base station height (both Tx and Rx are below the average height of the clutter)
++  InF_NLOS_DL,
++  //Indoor Factory with Dense clutter and High base station height (Tx or Rx elevated above the clutter)
++  InF_NLOS_DH,
++  //Indoor Factory with Sparse clutter and Low base station height (both Tx and Rx are below the average height of the clutter)
++  InF_NLOS_SL,
++  //Indoor Factory with Sparse clutter and High base station height (Tx or Rx elevated above the clutter)
++  InF_NLOS_SH
++} pathloss_model_t;
++
+ typedef struct {
+   ///Number of tx antennas
+   uint8_t nb_tx;
+@@ -123,9 +168,15 @@ typedef struct {
+   /// identifies channel descriptor owner (the module which created this descriptor
+   channelmod_moduleid_t module_id;
+   /// name of this descriptor,used for model created from config file at init time
+-  char *model_name;  
++  char *model_name;
+   /// flags to properly trigger memory free
+   unsigned int free_flags;
++  /// Pathloss Models as defined by TR 38.901 version 16.1.0 Release 16
++  pathloss_model_t pathloss_model;
++  /// Variables required for pathloss models
++  pathloss_model_variable_t pathloss_model_var;
++  ///Pathloss Model Flag doesn't let the user change the pathloss directly when Pathloss Model is set
++  int PM_Flag;
+ } channel_desc_t;
+ 
+ typedef struct {
+@@ -258,6 +309,23 @@ typedef enum {
+ #define CONFIG_HLP_SNR     "Set average SNR in dB (for --siml1 option)\n"
+ #define CHANNELMOD_SECTION "channelmod"
+ 
++#define PLMOD_MAP_INIT \
++  {"None",None},\
++  {"RMa_LOS",RMa_LOS},\
++  {"RMa_NLOS",RMa_NLOS},\
++  {"UMa_LOS",UMa_LOS},\
++  {"UMa_NLOS",UMa_NLOS},\
++  {"UMi_SC_LOS",UMi_SC_LOS},\
++  {"UMi_SC_NLOS",UMi_SC_NLOS},\
++  {"InH_Office_LOS",InH_Office_LOS},\
++  {"InH_Office_NLOS",InH_Office_NLOS},\
++  {"InF_LOS",InF_LOS},\
++  {"InF_NLOS_DL",InF_NLOS_DL},\
++  {"InF_NLOS_DH",InF_NLOS_DH},\
++  {"InF_NLOS_SL",InF_NLOS_SL},\
++  {"InF_NLOS_SH",InF_NLOS_SH},\
++  {NULL, -1}
++
+ /* global channel modelization parameters */
+ #define CHANNELMOD_MODELLIST_PARANAME "modellist"
+ 
+@@ -271,9 +339,10 @@ typedef enum {
+ }
+ // clang-format on
+ 
+-/* parameters for one model */ 
++/* parameters for one model */
+ #define CHANNELMOD_MODEL_NAME_PNAME "model_name"
+ #define CHANNELMOD_MODEL_TYPE_PNAME "type"
++#define CHANNELMOD_MODEL_PLM_PNAME "pathloss_model"
+ #define CHANNELMOD_MODEL_PL_PNAME "ploss_dB"
+ #define CHANNELMOD_MODEL_NP_PNAME "noise_power_dB"
+ #define CHANNELMOD_MODEL_FF_PNAME "forgetfact"
+@@ -284,6 +353,7 @@ typedef enum {
+ #define CHANNELMOD_MODEL_PARAMS_DESC {  \
+     {CHANNELMOD_MODEL_NAME_PNAME, "name of the model\n",               0,  .strptr=NULL ,            .defstrval="",                    TYPE_STRING,    0 }, \
+     {CHANNELMOD_MODEL_TYPE_PNAME, "name of the model type\n",          0,  .strptr=NULL ,            .defstrval="AWGN",                TYPE_STRING,    0 }, \
++    {CHANNELMOD_MODEL_PLM_PNAME,  "name of the pathloss Model\n",      0,  .strptr=NULL ,            .defstrval="None",                TYPE_STRING,    0 }, \
+     {CHANNELMOD_MODEL_PL_PNAME,   "channel path loss in dB\n",         0,  .dblptr=NULL,             .defdblval=0,                     TYPE_DOUBLE,    0 }, \
+     {CHANNELMOD_MODEL_NP_PNAME,   "channel noise in dB\n",             0,  .dblptr=NULL,             .defdblval=-50,                   TYPE_DOUBLE,    0 }, \
+     {CHANNELMOD_MODEL_FF_PNAME,   "channel forget factor ((0 to 1)\n", 0,  .dblptr=NULL,             .defdblval=0,                     TYPE_DOUBLE,    0 }, \
+@@ -320,6 +390,7 @@ typedef struct {
+ channel_desc_t *new_channel_desc_scm(uint8_t nb_tx,
+                                      uint8_t nb_rx,
+                                      SCM_t channel_model,
++                                     pathloss_model_t pathloss_model,
+                                      double sampling_rate,
+                                      uint64_t center_freq,
+                                      double channel_bandwidth,
+@@ -333,7 +404,7 @@ channel_desc_t *new_channel_desc_scm(uint8_t nb_tx,
+ 
+ channel_desc_t *find_channel_desc_fromname( char *modelname );
+ 
+-
++int calculate_pathloss_cmd(channel_desc_t *chan_desc);
+ /**
+ \brief free memory allocated for a model descriptor
+ \param ch points to the model, which cannot be used after calling this fuction
+@@ -552,14 +623,14 @@ int modelid_fromstrtype(char *modeltype);
+ double channelmod_get_snr_dB(void);
+ double channelmod_get_sinr_dB(void);
+ void init_channelmod(void) ;
+-int load_channellist(uint8_t nb_tx, uint8_t nb_rx, double sampling_rate, double channel_bandwidth) ;
++int load_channellist(uint8_t nb_tx, uint8_t nb_rx, double sampling_rate, double channel_bandwidth, uint64_t fc) ;
+ double N_RB2sampling_rate(uint16_t N_RB);
+ double N_RB2channel_bandwidth(uint16_t N_RB);
+ 
+ /* Linear phase noise model */
+ /*!
+   \brief This function produce phase noise and add to input signal
+-  \param ts Sampling time 
++  \param ts Sampling time
+   \param *Re *Im Real and Imag part of the signal
+ */
+ //look-up table for the sine (cosine) function
+diff --git a/radio/rfsimulator/simulator.c b/radio/rfsimulator/simulator.c
+index 1a4e05c20d..b6bc5a0207 100644
+--- a/radio/rfsimulator/simulator.c
++++ b/radio/rfsimulator/simulator.c
+@@ -129,6 +129,7 @@ typedef struct {
+   uint64_t typeStamp;
+   char *ip;
+   uint16_t port;
++  uint64_t fc; //center frequency
+   int saveIQfile;
+   buffer_t buf[FD_SETSIZE];
+   int rx_num_channels;
+@@ -136,6 +137,7 @@ typedef struct {
+   double sample_rate;
+   double tx_bw;
+   int channelmod;
++  int pathlossmod;
+   double chan_pathloss;
+   double chan_forgetfact;
+   int    chan_offset;
+@@ -293,7 +295,7 @@ static void rfsimulator_readconfig(rfsimulator_state_t *rfsimulator) {
+       break;
+     } else if (strcmp(rfsimu_params[p].strlistptr[i],"chanmod") == 0) {
+       init_channelmod();
+-      load_channellist(rfsimulator->tx_num_channels, rfsimulator->rx_num_channels, rfsimulator->sample_rate, rfsimulator->tx_bw);
++      load_channellist(rfsimulator->tx_num_channels, rfsimulator->rx_num_channels, rfsimulator->sample_rate, rfsimulator->tx_bw, rfsimulator->fc);
+       rfsimulator->channelmod=true;
+     } else {
+       fprintf(stderr,"Unknown rfsimulator option: %s\n",rfsimu_params[p].strlistptr[i]);
+@@ -350,6 +352,7 @@ static int rfsimu_setchanmod_cmd(char *buff, int debug, telnet_printfunc_t prnt,
+           channel_desc_t *newmodel = new_channel_desc_scm(t->tx_num_channels,
+                                                           t->rx_num_channels,
+                                                           channelmod,
++                                                          t->pathlossmod,
+                                                           t->sample_rate,
+                                                           0,
+                                                           t->tx_bw,
+@@ -372,7 +375,7 @@ static int rfsimu_setchanmod_cmd(char *buff, int debug, telnet_printfunc_t prnt,
+         }
+       } /* for */
+       if (found==0)
+-      	prnt("Channel %s not found or not currently used\n",modelname); 
++      	prnt("Channel %s not found or not currently used\n",modelname);
+     }
+   } else {
+     prnt("ERROR: 2 parameters required: model name and model type (%i found)\n",s);
+@@ -506,6 +509,8 @@ static int rfsimu_setdistance_cmd(char *buff, int debug, telnet_printfunc_t prnt
+     const int nbTx = cd->nb_tx;
+     prnt("  Modifying model %s...\n", modelname);
+     rfsimu_offset_change_cirBuf(b->circularBuf, t->nextRxTstamp, CirSize, old_offset, new_offset, nbTx);
++    cd->pathloss_model_var.d_2d = new_distance;
++    calculate_pathloss_cmd(cd);
+   }
+ 
+   free(modelname);
+@@ -881,7 +886,7 @@ static int rfsimulator_read(openair0_device *device, openair0_timestamp *ptimest
+                      CirSize);
+         }
+         else { // no channel modeling
+-          
++
+           double H_awgn_mimo[4][4] ={{1.0, 0.2, 0.1, 0.05}, //rx 0
+                                       {0.2, 1.0, 0.2, 0.1}, //rx 1
+                                      {0.1, 0.2, 1.0, 0.2}, //rx 2
+@@ -947,7 +952,8 @@ int device_init(openair0_device *device, openair0_config_t *openair0_cfg) {
+   rfsimulator->tx_num_channels=openair0_cfg->tx_num_channels;
+   rfsimulator->rx_num_channels=openair0_cfg->rx_num_channels;
+   rfsimulator->sample_rate=openair0_cfg->sample_rate;
+-  rfsimulator->tx_bw=openair0_cfg->tx_bw;  
++  rfsimulator->fc=openair0_cfg->tx_freq[0];
++  rfsimulator->tx_bw=openair0_cfg->tx_bw;
+   rfsimulator_readconfig(rfsimulator);
+   LOG_W(HW, "rfsim: sample_rate %f\n", rfsimulator->sample_rate);
+   pthread_mutex_init(&Sockmutex, NULL);
+diff --git a/targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210.conf b/targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210.conf
+index 3b7fadf3bc..038bf091f4 100644
+--- a/targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210.conf
++++ b/targets/PROJECTS/GENERIC-NR-5GC/CONF/gnb.sa.band78.fr1.106PRB.usrpb210.conf
+@@ -19,6 +19,13 @@ gNBs =
+ 
+     do_CSIRS                                                  = 1;
+     do_SRS                                                    = 1;
++    
++    pdcch_ConfigSIB1 = (
++    {
++    	controlResourceSetZero = 12;
++    	searchSpaceZero = 0;
++    });
++    
+ 
+     servingCellConfigCommon = (
+     {
+diff --git a/targets/PROJECTS/GENERIC-NR-5GC/CONF/ue.conf b/targets/PROJECTS/GENERIC-NR-5GC/CONF/ue.conf
+index 545b44f888..6d81037448 100644
+--- a/targets/PROJECTS/GENERIC-NR-5GC/CONF/ue.conf
++++ b/targets/PROJECTS/GENERIC-NR-5GC/CONF/ue.conf
+@@ -1,8 +1,8 @@
+ uicc0 = {
+-imsi = "2089900007487";
++imsi = "001010000000001";
+ key = "fec86ba6eb707ed08905757b1bb44b8f";
+ opc= "C42449363BBAD02B66D16BC975D77CC1";
+ dnn= "oai";
+ nssai_sst=1;
+-nssai_sd=1;
++nssai_sd=0xffffff;
+ }
